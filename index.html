@@ -33,7 +33,7 @@
 
     <header class="text-center mb-6">
         <h1 class="text-3xl font-bold text-indigo-400 mb-1">Blokus Mobile</h1>
-        <p class="text-sm text-gray-400">4-Player pass-and-play. Place the first piece on your starting corner.</p>
+        <p class="text-sm text-gray-400">4-Player pass-and-play.</p>
     </header>
 
     <div class="w-full max-w-md flex flex-col items-center gap-6">
@@ -79,11 +79,24 @@
             [[1]], 
             [[1, 1]], 
             [[1, 1, 1]], 
-            [[1, 1], [0, 1]], 
+            [[1, 1], [1, 0]], 
             [[1, 1, 1, 1]], 
             [[1, 1], [1, 1]], 
             [[1, 1, 1], [1, 0, 0]], 
-            [[1, 0], [1, 1], [1, 0]]
+            [[1, 1, 1], [0, 1, 0]], 
+            [[1, 1, 0], [0, 1, 1]], 
+            [[1, 1, 1, 1, 1]], 
+            [[1, 1, 1, 1], [1, 0, 0, 0]], 
+            [[1, 1, 1, 1], [0, 1, 0, 0]], 
+            [[1, 1, 1], [1, 0, 0], [1, 0, 0]], 
+            [[1, 1, 1], [0, 1, 0], [0, 1, 0]], 
+            [[1, 1], [1, 1], [1, 0]], 
+            [[1, 0, 0], [1, 1, 1], [0, 0, 1]], 
+            [[0, 1, 0], [1, 1, 1], [0, 1, 0]], 
+            [[1, 0, 0], [1, 0, 0], [1, 1, 1]], 
+            [[1, 0, 0], [1, 1, 0], [0, 1, 1]], 
+            [[1, 1], [1, 0], [1, 1]], 
+            [[0, 1, 1], [1, 1, 0], [0, 1, 0]]
         ];
 
         let board = Array(20).fill(null).map(() => Array(20).fill(null));
@@ -215,7 +228,6 @@
         }
 
         function validatePlacement(piece, r, c, playerIndex) {
-            // Checks if a cell contains another player's cell or is out of bounds
             let isFirstMove = true;
             for (let er = 0; er < 20; er++) {
                 for (let ec = 0; ec < 20; ec++) {
@@ -333,4 +345,3 @@
     </script>
 </body>
 </html>
-
