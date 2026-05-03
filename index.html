@@ -6,8 +6,8 @@
     <title>Blokus</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --cell-size: 4.5vw; }
-        @media (min-width: 600px) { :root { --cell-size: 22px; } }
+        :root { --cell-size: 4.2vw; }
+        @media (min-width: 600px) { :root { --cell-size: 20px; } }
 
         .board-grid {
             display: grid;
@@ -15,7 +15,6 @@
             grid-template-rows: repeat(20, var(--cell-size));
             gap: 1px;
             background-color: #111827;
-            touch-action: none;
             user-select: none;
         }
         .cell {
@@ -26,58 +25,74 @@
         }
         .ghost-valid { filter: brightness(1.5) opacity(0.7); outline: 1px solid white; }
         .ghost-invalid { background-color: #991b1b !important; opacity: 0.5; }
-        
-        .piece-btn { transition: transform 0.1s; touch-action: manipulation; }
-        .piece-btn:active { transform: scale(0.95); }
 
-        /* Hide game by default */
+        /* Joystick Styles */
+        #joystick-container {
+            width: 100px;
+            height: 100px;
+            background: rgba(55, 65, 81, 0.5);
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+        }
+        #joystick-handle {
+            width: 40px;
+            height: 40px;
+            background: #6366f1;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+
         #game-screen { display: none; }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col items-center p-2 sm:p-4 overflow-x-hidden min-h-screen">
 
     <div id="setup-screen" class="w-full max-w-md flex flex-col items-center justify-center space-y-8 mt-20">
-        <div class="text-center">
-            <h1 class="text-6xl font-black text-indigo-500 tracking-tighter">BLOKUS</h1>
-            <p class="text-gray-400 mt-2 italic">Strategic Territory Conquest</p>
-        </div>
-
+        <h1 class="text-6xl font-black text-indigo-500 tracking-tighter">BLOKUS</h1>
         <div class="w-full bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-2xl">
-            <h2 class="text-xl font-bold mb-6 text-center">Select Number of Players</h2>
+            <h2 class="text-xl font-bold mb-6 text-center">Players</h2>
             <div class="grid gap-4">
-                <button onclick="initGame(2)" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-lg transition-all shadow-lg active:scale-95">2 Players</button>
-                <button onclick="initGame(3)" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-lg transition-all shadow-lg active:scale-95">3 Players</button>
-                <button onclick="initGame(4)" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-lg transition-all shadow-lg active:scale-95">4 Players</button>
+                <button onclick="initGame(2)" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold">2 Players</button>
+                <button onclick="initGame(3)" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold">3 Players</button>
+                <button onclick="initGame(4)" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold">4 Players</button>
             </div>
         </div>
     </div>
 
-    <div id="game-screen" class="w-full max-w-xl">
+    <div id="game-screen" class="w-full max-w-2xl">
         <header class="flex justify-between items-center mb-4 px-2">
-            <div>
-                <h1 class="text-xl font-bold text-indigo-400">Blokus</h1>
-                <p id="status-text" class="text-xs text-gray-400 uppercase">Drag to place</p>
-            </div>
-            <div id="turn-card" class="px-4 py-2 rounded-lg border-b-4 border-blue-500 bg-gray-800 transition-colors">
+            <div id="turn-card" class="px-4 py-1 rounded-lg border-b-4 border-blue-500 bg-gray-800">
                 <span id="player-name" class="font-black text-blue-500 uppercase">BLUE</span>
             </div>
+            <button onclick="location.reload()" class="text-xs text-gray-500">Menu</button>
         </header>
 
-        <div class="relative mb-6 flex justify-center">
-            <div id="board" class="board-grid border-4 border-gray-800 shadow-2xl"></div>
-        </div>
+        <div class="flex flex-row items-center justify-center gap-4 mb-6">
+            <div class="flex flex-col items-center gap-2">
+                <div id="joystick-container">
+                    <div id="joystick-handle"></div>
+                </div>
+                <span class="text-[10px] text-gray-500 uppercase font-bold">Move</span>
+            </div>
 
-        <div class="grid grid-cols-3 gap-2 mb-6">
-            <button onclick="rotatePiece()" class="bg-gray-800 hover:bg-gray-700 py-3 rounded-xl font-bold border border-gray-700">Rotate ↻</button>
-            <button onclick="flipPiece()" class="bg-gray-800 hover:bg-gray-700 py-3 rounded-xl font-bold border border-gray-700">Flip ↔</button>
-            <button onclick="passTurn()" class="bg-amber-900/40 hover:bg-amber-800 py-3 rounded-xl font-bold border border-amber-700/50">Pass</button>
+            <div id="board" class="board-grid border-2 border-gray-800 shadow-2xl"></div>
+
+            <div class="flex flex-col gap-3">
+                <button onclick="rotatePiece()" class="w-12 h-12 flex items-center justify-center bg-gray-800 rounded-full border border-gray-600 text-xl">↻</button>
+                <button onclick="flipPiece()" class="w-12 h-12 flex items-center justify-center bg-gray-800 rounded-full border border-gray-600 text-xl">↔</button>
+                <button id="place-btn" onclick="confirmPlacement()" class="w-12 h-12 flex items-center justify-center bg-green-600 rounded-full border border-green-400 text-xl shadow-lg shadow-green-900/20">✓</button>
+                <button onclick="passTurn()" class="w-12 h-12 flex items-center justify-center bg-amber-900/40 rounded-full border border-amber-700/50 text-xs font-bold">SKIP</button>
+            </div>
         </div>
 
         <div class="bg-gray-800 p-4 rounded-2xl border border-gray-700">
-            <div id="pieces-container" class="flex flex-wrap gap-3 justify-center max-h-64 overflow-y-auto p-1"></div>
+            <div id="pieces-container" class="flex flex-wrap gap-2 justify-center max-h-48 overflow-y-auto p-1"></div>
         </div>
-        
-        <button onclick="location.reload()" class="w-full mt-4 text-xs text-gray-500 hover:text-gray-300">Quit to Main Menu</button>
     </div>
 
     <script>
@@ -95,28 +110,23 @@
             numPlayers: 4,
             selectedIdx: null,
             activePiece: null,
-            isDragging: false
+            cursor: { r: 9, c: 9 }
         };
 
         const boardEl = document.getElementById('board');
+        const handle = document.getElementById('joystick-handle');
+        let joyActive = false;
+        let moveInterval = null;
 
         function initGame(count) {
             state.numPlayers = count;
-            // Setup players and their pieces
-            for(let i=0; i<4; i++) {
-                state.players[i].pieces = JSON.parse(JSON.stringify(PIECES));
-            }
-
+            for(let i=0; i<4; i++) state.players[i].pieces = JSON.parse(JSON.stringify(PIECES));
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
-            
             createBoard();
             renderTray();
             updateUI();
-            
-            boardEl.addEventListener('pointerdown', startDrag);
-            window.addEventListener('pointermove', doDrag);
-            window.addEventListener('pointerup', endDrag);
+            setupJoystick();
         }
 
         function createBoard() {
@@ -126,19 +136,14 @@
                     const cell = document.createElement('div');
                     cell.className = 'cell';
                     cell.id = `c-${r}-${c}`;
-                    // Corner marks based on player count
-                    const corners = [[0,0], [0,19], [19,0], [19,19]];
-                    for(let i=0; i<state.numPlayers; i++) {
-                        if(r === corners[i][0] && c === corners[i][1]) {
-                            cell.style.boxShadow = "inset 0 0 8px rgba(255,255,255,0.4)";
-                        }
-                    }
                     boardEl.appendChild(cell);
                 }
             }
         }
 
         function renderBoard() {
+            const isValid = state.activePiece ? validate(state.activePiece, state.cursor.r, state.cursor.c, state.turn) : false;
+            
             for(let r=0; r<20; r++) {
                 for(let c=0; c<20; c++) {
                     const cell = document.getElementById(`c-${r}-${c}`);
@@ -147,70 +152,72 @@
                     cell.style.backgroundColor = owner !== null ? state.players[owner].color : '';
                 }
             }
-        }
 
-        function renderTray() {
-            const container = document.getElementById('pieces-container');
-            container.innerHTML = '';
-            const p = state.players[state.turn];
-            p.pieces.forEach((matrix, i) => {
-                const btn = document.createElement('div');
-                btn.className = `piece-btn p-2 rounded cursor-pointer ${state.selectedIdx === i ? 'bg-gray-600 ring-2 ring-indigo-400' : 'bg-gray-700 hover:bg-gray-600'}`;
-                btn.onclick = () => { state.selectedIdx = i; state.activePiece = matrix; renderTray(); };
-                btn.innerHTML = drawMatrix(matrix, p.color, 10);
-                container.appendChild(btn);
-            });
-        }
-
-        function drawMatrix(matrix, color, size) {
-            const r = matrix.length, c = matrix[0].length;
-            let h = `<div style="display:grid; grid-template-columns:repeat(${c},${size}px); gap:1px">`;
-            for(let i=0; i<r; i++) 
-                for(let j=0; j<c; j++) 
-                    h += `<div style="width:${size}px; height:${size}px; background:${matrix[i][j]?color:'transparent'}"></div>`;
-            return h + `</div>`;
-        }
-
-        function startDrag(e) {
-            if (state.selectedIdx === null) return;
-            state.isDragging = true;
-            doDrag(e);
-        }
-
-        function doDrag(e) {
-            if (!state.isDragging || !state.activePiece) return;
-            const rect = boardEl.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const c = Math.floor(x / (rect.width / 20));
-            const r = Math.floor(y / (rect.height / 20));
-            renderBoard(); 
-            if (r >= 0 && r < 20 && c >= 0 && c < 20) {
-                const isValid = validate(state.activePiece, r, c, state.turn);
-                showGhost(state.activePiece, r, c, isValid);
-                state.lastPos = { r, c };
-            } else { state.lastPos = null; }
-        }
-
-        function endDrag() {
-            if (!state.isDragging) return;
-            state.isDragging = false;
-            if (state.lastPos && validate(state.activePiece, state.lastPos.r, state.lastPos.c, state.turn)) {
-                placePiece(state.activePiece, state.lastPos.r, state.lastPos.c);
-            } else { renderBoard(); }
-        }
-
-        function showGhost(piece, r, c, isValid) {
-            piece.forEach((row, i) => {
-                row.forEach((val, j) => {
-                    if (val) {
-                        const target = document.getElementById(`c-${r+i}-${c+j}`);
-                        if (target) {
-                            target.style.backgroundColor = state.players[state.turn].color;
-                            target.classList.add(isValid ? 'ghost-valid' : 'ghost-invalid');
+            if (state.activePiece) {
+                state.activePiece.forEach((row, i) => {
+                    row.forEach((val, j) => {
+                        if (val) {
+                            const tr = state.cursor.r + i, tc = state.cursor.c + j;
+                            if (tr >= 0 && tr < 20 && tc >= 0 && tc < 20) {
+                                const target = document.getElementById(`c-${tr}-${tc}`);
+                                target.style.backgroundColor = state.players[state.turn].color;
+                                target.classList.add(isValid ? 'ghost-valid' : 'ghost-invalid');
+                            }
                         }
-                    }
+                    });
                 });
+            }
+            document.getElementById('place-btn').style.opacity = isValid ? '1' : '0.3';
+        }
+
+        function setupJoystick() {
+            const container = document.getElementById('joystick-container');
+            
+            const handleMove = (e) => {
+                if (!joyActive) return;
+                const rect = container.getBoundingClientRect();
+                const touch = e.touches ? e.touches[0] : e;
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                
+                let dx = touch.clientX - centerX;
+                let dy = touch.clientY - centerY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const maxDist = rect.width / 2;
+
+                if (dist > maxDist) {
+                    dx *= maxDist / dist;
+                    dy *= maxDist / dist;
+                }
+
+                handle.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                
+                // Sensitivity threshold to move piece
+                if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
+                    if (!moveInterval) {
+                        moveInterval = setInterval(() => {
+                            if (Math.abs(dx) > 15) state.cursor.c += dx > 0 ? 1 : -1;
+                            if (Math.abs(dy) > 15) state.cursor.r += dy > 0 ? 1 : -1;
+                            
+                            // Constrain
+                            state.cursor.r = Math.max(0, Math.min(19, state.cursor.r));
+                            state.cursor.c = Math.max(0, Math.min(19, state.cursor.c));
+                            renderBoard();
+                        }, 120);
+                    }
+                } else {
+                    clearInterval(moveInterval);
+                    moveInterval = null;
+                }
+            };
+
+            container.addEventListener('pointerdown', () => joyActive = true);
+            window.addEventListener('pointermove', handleMove);
+            window.addEventListener('pointerup', () => {
+                joyActive = false;
+                handle.style.transform = `translate(-50%, -50%)`;
+                clearInterval(moveInterval);
+                moveInterval = null;
             });
         }
 
@@ -239,10 +246,12 @@
             return isFirst ? hasCorner : (hasCorner && !hasEdge);
         }
 
-        function placePiece(piece, r, c) {
-            piece.forEach((row, i) => {
+        function confirmPlacement() {
+            if (!state.activePiece || !validate(state.activePiece, state.cursor.r, state.cursor.c, state.turn)) return;
+            
+            state.activePiece.forEach((row, i) => {
                 row.forEach((val, j) => {
-                    if (val) state.board[r+i][c+j] = state.turn;
+                    if (val) state.board[state.cursor.r+i][state.cursor.c+j] = state.turn;
                 });
             });
             state.players[state.turn].pieces.splice(state.selectedIdx, 1);
@@ -252,24 +261,44 @@
         function rotatePiece() {
             if (!state.activePiece) return;
             state.activePiece = state.activePiece[0].map((_, i) => state.activePiece.map(row => row[i]).reverse());
-            state.players[state.turn].pieces[state.selectedIdx] = state.activePiece;
-            renderTray();
+            renderBoard();
         }
 
         function flipPiece() {
             if (!state.activePiece) return;
             state.activePiece = state.activePiece.map(row => [...row].reverse());
-            state.players[state.turn].pieces[state.selectedIdx] = state.activePiece;
-            renderTray();
+            renderBoard();
         }
 
         function passTurn() {
             state.turn = (state.turn + 1) % state.numPlayers;
             state.selectedIdx = null;
             state.activePiece = null;
+            state.cursor = { r: 9, c: 9 };
             updateUI();
             renderTray();
             renderBoard();
+        }
+
+        function renderTray() {
+            const container = document.getElementById('pieces-container');
+            container.innerHTML = '';
+            state.players[state.turn].pieces.forEach((matrix, i) => {
+                const btn = document.createElement('div');
+                btn.className = `p-1 rounded bg-gray-700 ${state.selectedIdx === i ? 'ring-2 ring-indigo-400' : ''}`;
+                btn.onclick = () => { state.selectedIdx = i; state.activePiece = matrix; renderTray(); renderBoard(); };
+                btn.innerHTML = drawMatrix(matrix, state.players[state.turn].color, 7);
+                container.appendChild(btn);
+            });
+        }
+
+        function drawMatrix(matrix, color, size) {
+            const r = matrix.length, c = matrix[0].length;
+            let h = `<div style="display:grid; grid-template-columns:repeat(${c},${size}px); gap:1px">`;
+            for(let i=0; i<r; i++) 
+                for(let j=0; j<c; j++) 
+                    h += `<div style="width:${size}px; height:${size}px; background:${matrix[i][j]?color:'transparent'}"></div>`;
+            return h + `</div>`;
         }
 
         function updateUI() {
