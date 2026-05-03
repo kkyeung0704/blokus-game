@@ -46,11 +46,14 @@
 
         <div id="board" class="board-grid shadow-2xl"></div>
 
-        <div class="flex gap-4 w-full justify-between">
-            <button id="confirm-btn" onclick="confirmPlacement()" class="w-1/2 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-50" disabled>
+        <div class="flex gap-3 w-full justify-between">
+            <button id="redo-btn" onclick="redoPlacement()" class="w-1/3 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-50" disabled>
+                Redo
+            </button>
+            <button id="confirm-btn" onclick="confirmPlacement()" class="w-1/3 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-50" disabled>
                 Confirm
             </button>
-            <button onclick="passTurn()" class="w-1/2 py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-md transition-all active:scale-95">
+            <button onclick="passTurn()" class="w-1/3 py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-md transition-all active:scale-95">
                 Pass Turn
             </button>
         </div>
@@ -227,6 +230,7 @@
             selectedPiece = JSON.parse(JSON.stringify(players[currentPlayerIndex].pieces[index]));
             tentativePlacement = null;
             document.getElementById('confirm-btn').disabled = true;
+            document.getElementById('redo-btn').disabled = true;
             renderPieces();
             renderPreview();
             renderBoard();
@@ -257,7 +261,6 @@
                 floatEl.style.left = `${clientX - 20}px`;
                 floatEl.style.top = `${clientY - 40}px`;
 
-                // Update tentative placement as shadow is dragged over the board
                 const boardEl = document.getElementById('board');
                 const boardRect = boardEl.getBoundingClientRect();
                 
@@ -443,11 +446,22 @@
                 };
                 renderBoard();
                 document.getElementById('confirm-btn').disabled = false;
+                document.getElementById('redo-btn').disabled = false;
             } else {
                 tentativePlacement = null;
                 renderBoard();
                 document.getElementById('confirm-btn').disabled = true;
+                document.getElementById('redo-btn').disabled = true;
             }
+        }
+
+        function redoPlacement() {
+            if (!tentativePlacement) return;
+            
+            tentativePlacement = null;
+            renderBoard();
+            document.getElementById('confirm-btn').disabled = true;
+            document.getElementById('redo-btn').disabled = true;
         }
 
         function confirmPlacement() {
@@ -479,6 +493,7 @@
             selectedPieceIndex = null;
             tentativePlacement = null;
             document.getElementById('confirm-btn').disabled = true;
+            document.getElementById('redo-btn').disabled = true;
             renderBoard();
             renderTurn();
             renderPieces();
