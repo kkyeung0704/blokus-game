@@ -53,16 +53,17 @@
             </button>
         </div>
 
-        <div class="w-full bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col items-center gap-3">
+        <div class="w-full bg-gray-800 p-3 rounded-xl border border-gray-700 flex flex-col items-center gap-2">
             <span class="text-xs font-medium text-gray-400 tracking-wider uppercase">Selected Piece</span>
             
-            <div id="piece-preview" class="p-2 bg-gray-900 rounded-lg min-h-[60px] min-w-[60px] flex items-center justify-center"></div>
-
-            <div class="flex gap-3 mt-1">
-                <button onclick="rotatePiece()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-sm rounded font-medium shadow-sm active:scale-95">
+            <div class="flex items-center justify-between w-full px-2">
+                <button onclick="rotatePiece()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-xs rounded-lg font-medium shadow-md active:scale-95">
                     Rotate ↻
                 </button>
-                <button onclick="flipPiece()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-sm rounded font-medium shadow-sm active:scale-95">
+                
+                <div id="piece-preview" class="p-2 bg-gray-900 rounded-lg min-h-[60px] min-w-[60px] flex items-center justify-center cursor-grab active:cursor-grabbing select-none" onmousedown="startDragFromPreview(event)" ontouchstart="startDragFromPreview(event)"></div>
+                
+                <button onclick="flipPiece()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-xs rounded-lg font-medium shadow-md active:scale-95">
                     Flip ↔
                 </button>
             </div>
@@ -184,10 +185,8 @@
                 btn.className = `p-2 rounded border transition-all ${
                     selectedPieceIndex === index ? 'border-indigo-400 bg-gray-700 shadow' : 'border-gray-600 bg-gray-800 hover:bg-gray-700'
                 }`;
+                // Select only (no direct dragging from the list)
                 btn.onclick = () => selectPiece(index);
-                btn.onmousedown = (e) => startDrag(index, e);
-                btn.ontouchstart = (e) => startDrag(index, e);
-                btn.ondragstart = () => false;
 
                 const matrixHtml = renderMiniPiece(pieceMatrix, p.color);
                 btn.innerHTML = matrixHtml;
@@ -225,13 +224,16 @@
         function selectPiece(index) {
             selectedPieceIndex = index;
             selectedPiece = JSON.parse(JSON.stringify(players[currentPlayerIndex].pieces[index]));
+            tentativePlacement = null;
+            document.getElementById('confirm-btn').disabled = true;
             renderPieces();
             renderPreview();
+            renderBoard();
         }
 
-        function startDrag(index, event) {
+        function startDragFromPreview(event) {
+            if (!selectedPiece) return;
             event.preventDefault();
-            selectPiece(index);
 
             let floatEl = document.createElement('div');
             floatEl.id = 'floating-piece';
@@ -279,27 +281,6 @@
             document.addEventListener('mouseup', upHandler);
             document.addEventListener('touchmove', moveHandler);
             document.addEventListener('touchend', upHandler);
-        }
-
-        function tryPlaceTentative(r, c) {
-            if (!selectedPiece) return;
-
-            if (validatePlacement(selectedPiece, r, c, currentPlayerIndex)) {
-                tentativePlacement = {
-                    r: r,
-                    c: c,
-                    pieceMatrix: JSON.parse(JSON.stringify(selectedPiece)),
-                    playerIndex: currentPlayerIndex,
-                    originalIndex: selectedPieceIndex
-                };
-                renderBoard();
-                document.getElementById('confirm-btn').disabled = false;
-            } else {
-                alert("Invalid placement! Please make sure the piece is connected at the corners, does not touch your own edges, and does not overlap.");
-                tentativePlacement = null;
-                renderBoard();
-                document.getElementById('confirm-btn').disabled = true;
-            }
         }
 
         function rotatePiece() {
@@ -413,10 +394,29 @@
         }
 
         function handleCellClick(r, c) {
-            if (!selectedPiece) {
-                return;
-            }
+            if (!selectedPiece) return;
             tryPlaceTentative(r, c);
+        }
+
+        function tryPlaceTentative(r, c) {
+            if (!selectedPiece) return;
+
+            if (validatePlacement(selectedPiece, r, c, currentPlayerIndex)) {
+                tentativePlacement = {
+                    r: r,
+                    c: c,
+                    pieceMatrix: JSON.parse(JSON.stringify(selectedPiece)),
+                    playerIndex: currentPlayerIndex,
+                    originalIndex: selectedPieceIndex
+                };
+                renderBoard();
+                document.getElementById('confirm-btn').disabled = false;
+            } else {
+                alert("Invalid placement! Please make sure the piece is connected at the corners, does not touch your own edges, and does not overlap.");
+                tentativePlacement = null;
+                renderBoard();
+                document.getElementById('confirm-btn').disabled = true;
+            }
         }
 
         function confirmPlacement() {
