@@ -24,11 +24,8 @@
             background-color: #374151;
             border-radius: 1px;
         }
-        /* The shape following the cursor */
         .ghost-valid { filter: brightness(1.4) saturate(1.2); outline: 2px solid white; z-index: 10; opacity: 0.8; }
         .ghost-invalid { background-color: #991b1b !important; opacity: 0.4; }
-        
-        /* The shape "locked" after a tap */
         .pending-move { filter: brightness(1.2); outline: 2px dashed rgba(255,255,255,0.7); opacity: 1; }
         
         .piece-btn { transition: transform 0.1s; touch-action: manipulation; }
@@ -98,7 +95,7 @@
             selectedIdx: null,
             activePiece: null,
             pendingMove: null,
-            cursorPos: null // Current hover position {r, c}
+            cursorPos: null
         };
 
         let boardEl;
@@ -107,7 +104,25 @@
             state.numPlayers = count;
             boardEl = document.getElementById('board');
             
-            for(let i=0; i<4; i++) state.players[i].pieces = JSON.parse(JSON.stringify(PIECES));
+            if (!boardEl) {
+                console.error("Board element not found!");
+                return;
+            }
+
+            // Cleanup potential old listeners
+            window.removeEventListener('pointermove', handleHover);
+            boardEl.removeEventListener('pointerdown', handleBoardTap);
+
+            for (let i = 0; i < 4; i++) {
+                state.players[i].pieces = JSON.parse(JSON.stringify(PIECES));
+            }
+
+            state.turn = 0;
+            state.selectedIdx = null;
+            state.activePiece = null;
+            state.pendingMove = null;
+            state.cursorPos = null;
+            state.board = Array(20).fill(null).map(() => Array(20).fill(null));
 
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
@@ -116,15 +131,14 @@
             renderTray();
             updateUI();
             
-            // Interaction logic: Hover everywhere, but track the board rect
             window.addEventListener('pointermove', handleHover);
             boardEl.addEventListener('pointerdown', handleBoardTap);
         }
 
         function createBoard() {
             boardEl.innerHTML = '';
-            for(let r=0; r<20; r++) {
-                for(let c=0; c<20; c++) {
+            for (let r = 0; r < 20; r++) {
+                for (let c = 0; c < 20; c++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
                     cell.id = `c-${r}-${c}`;
@@ -134,22 +148,20 @@
         }
 
         function renderBoard() {
-            // Reset cells
-            for(let r=0; r<20; r++) {
-                for(let c=0; c<20; c++) {
+            for (let r = 0; r < 20; r++) {
+                for (let c = 0; c < 20; c++) {
                     const cell = document.getElementById(`c-${r}-${c}`);
+                    if (!cell) continue;
                     cell.className = 'cell';
                     const owner = state.board[r][c];
                     cell.style.backgroundColor = owner !== null ? state.players[owner].color : '';
                 }
             }
 
-            // 1. Draw "Locked" Pending Move (if exists)
             if (state.pendingMove) {
                 drawGhost(state.pendingMove.piece, state.pendingMove.r, state.pendingMove.c, 'pending-move');
             }
 
-            // 2. Draw "Following" Ghost (if piece selected and mouse over board)
             if (state.activePiece && state.cursorPos) {
                 const isValid = validate(state.activePiece, state.cursorPos.r, state.cursorPos.c, state.turn);
                 drawGhost(state.activePiece, state.cursorPos.r, state.cursorPos.c, isValid ? 'ghost-valid' : 'ghost-invalid');
@@ -157,173 +169,4 @@
         }
 
         function handleHover(e) {
-            if (!state.activePiece) return;
-            
-            const rect = boardEl.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            const cellW = rect.width / 20;
-            const cellH = rect.height / 20;
-
-            // Use the offset logic to keep it above the finger/cursor
-            const c = Math.floor(x / cellW - state.activePiece[0].length / 2);
-            const r = Math.floor(y / cellH) - state.activePiece.length - 1;
-
-            // Check if cursor is near/on board area
-            if (r >= -5 && r < 20 && c >= -5 && c < 20) {
-                state.cursorPos = { r, c };
-            } else {
-                state.cursorPos = null;
-            }
-            renderBoard();
-        }
-
-        function handleBoardTap() {
-            if (!state.activePiece || !state.cursorPos) return;
-
-            const { r, c } = state.cursorPos;
-            if (validate(state.activePiece, r, c, state.turn)) {
-                // "Lock" the piece into a pending state
-                state.pendingMove = { 
-                    piece: JSON.parse(JSON.stringify(state.activePiece)), 
-                    r: r, 
-                    c: c 
-                };
-                
-                const okBtn = document.getElementById('ok-btn');
-                okBtn.disabled = false;
-                okBtn.style.opacity = "1";
-                renderBoard();
-            }
-        }
-
-        function drawGhost(piece, r, c, className) {
-            piece.forEach((row, i) => {
-                row.forEach((val, j) => {
-                    if (val) {
-                        const tr = r + i, tc = c + j;
-                        if (tr >= 0 && tr < 20 && tc >= 0 && tc < 20) {
-                            const target = document.getElementById(`c-${tr}-${tc}`);
-                            target.style.backgroundColor = state.players[state.turn].color;
-                            target.classList.add(className);
-                        }
-                    }
-                });
-            });
-        }
-
-        function confirmTurn() {
-            if (!state.pendingMove) return;
-            const { piece, r, c } = state.pendingMove;
-            
-            piece.forEach((row, i) => {
-                row.forEach((val, j) => {
-                    if (val) state.board[r+i][c+j] = state.turn;
-                });
-            });
-
-            state.players[state.turn].pieces.splice(state.selectedIdx, 1);
-            state.pendingMove = null;
-            passTurn();
-        }
-
-        function validate(piece, r, c, pIdx) {
-            let hasCorner = false, hasEdge = false;
-            let isFirst = !state.board.some(row => row.includes(pIdx));
-            const starts = [[0,0], [0,19], [19,0], [19,19]];
-
-            for (let i = 0; i < piece.length; i++) {
-                for (let j = 0; j < piece[i].length; j++) {
-                    if (piece[i][j]) {
-                        let pr = r + i, pc = c + j;
-                        if (pr < 0 || pr >= 20 || pc < 0 || pc >= 20 || state.board[pr][pc] !== null) return false;
-                        if (isFirst && pr === starts[pIdx][0] && pc === starts[pIdx][1]) hasCorner = true;
-                        
-                        [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr, dc]) => {
-                            let nr = pr+dr, nc = pc+dc;
-                            if (nr>=0 && nr<20 && nc>=0 && nc<20 && state.board[nr][nc] === pIdx) hasEdge = true;
-                        });
-                        [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr, dc]) => {
-                            let nr = pr+dr, nc = pc+dc;
-                            if (nr>=0 && nr<20 && nc>=0 && nc<20 && state.board[nr][nc] === pIdx) hasCorner = true;
-                        });
-                    }
-                }
-            }
-            return isFirst ? hasCorner : (hasCorner && !hasEdge);
-        }
-
-        function rotatePiece() {
-            if (!state.activePiece) return;
-            state.activePiece = state.activePiece[0].map((_, i) => state.activePiece.map(row => row[i]).reverse());
-            state.pendingMove = null; // Reset staged move on transformation
-            document.getElementById('ok-btn').disabled = true;
-            document.getElementById('ok-btn').style.opacity = "0.5";
-            renderTray();
-            renderBoard();
-        }
-
-        function flipPiece() {
-            if (!state.activePiece) return;
-            state.activePiece = state.activePiece.map(row => [...row].reverse());
-            state.pendingMove = null;
-            document.getElementById('ok-btn').disabled = true;
-            document.getElementById('ok-btn').style.opacity = "0.5";
-            renderTray();
-            renderBoard();
-        }
-
-        function passTurn() {
-            state.turn = (state.turn + 1) % state.numPlayers;
-            state.selectedIdx = null;
-            state.activePiece = null;
-            state.pendingMove = null;
-            state.cursorPos = null;
-            const okBtn = document.getElementById('ok-btn');
-            okBtn.disabled = true;
-            okBtn.style.opacity = "0.5";
-            updateUI();
-            renderTray();
-            renderBoard();
-        }
-
-        function renderTray() {
-            const container = document.getElementById('pieces-container');
-            container.innerHTML = '';
-            state.players[state.turn].pieces.forEach((matrix, i) => {
-                const btn = document.createElement('div');
-                btn.className = `piece-btn p-1 rounded cursor-pointer ${state.selectedIdx === i ? 'bg-indigo-900/50 ring-2 ring-indigo-400' : 'bg-gray-700 hover:bg-gray-600'}`;
-                btn.onclick = () => { 
-                    state.selectedIdx = i; 
-                    state.activePiece = matrix; 
-                    state.pendingMove = null;
-                    document.getElementById('ok-btn').disabled = true;
-                    document.getElementById('ok-btn').style.opacity = "0.5";
-                    renderTray(); 
-                    renderBoard();
-                };
-                btn.innerHTML = drawMatrix(matrix, state.players[state.turn].color, 9);
-                container.appendChild(btn);
-            });
-        }
-
-        function drawMatrix(matrix, color, size) {
-            const r = matrix.length, c = matrix[0].length;
-            let h = `<div style="display:grid; grid-template-columns:repeat(${c},${size}px); gap:1px">`;
-            for(let i=0; i<r; i++) 
-                for(let j=0; j<c; j++) 
-                    h += `<div style="width:${size}px; height:${size}px; background:${matrix[i][j]?color:'transparent'}"></div>`;
-            return h + `</div>`;
-        }
-
-        function updateUI() {
-            const p = state.players[state.turn];
-            const display = document.getElementById('player-display');
-            display.innerText = p.name;
-            display.style.color = p.color;
-            display.style.borderColor = p.color;
-        }
-    </script>
-</body>
-</html>
+            if
