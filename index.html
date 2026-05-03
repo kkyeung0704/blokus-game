@@ -145,7 +145,6 @@
                     if (board[r][c] !== null) {
                         cell.style.backgroundColor = players[board[r][c]].color;
                     } else {
-                        // Corner start indicators
                         if (r === 0 && c === 0) cell.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
                         else if (r === 0 && c === 19) cell.style.backgroundColor = 'rgba(234, 179, 8, 0.2)';
                         else if (r === 19 && c === 0) cell.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
@@ -153,7 +152,6 @@
                         else cell.style.backgroundColor = '';
                     }
 
-                    // Tentative Placement Overlay
                     if (tentativePlacement) {
                         let tr = tentativePlacement.r;
                         let tc = tentativePlacement.c;
@@ -257,9 +255,6 @@
             const moveHandler = (e) => {
                 let clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
                 let clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
-                
-                floatEl.style.left = `${clientX - 20}px`;
-                floatEl.style.top = `${clientY - 40}px`;
 
                 const boardEl = document.getElementById('board');
                 const boardRect = boardEl.getBoundingClientRect();
@@ -275,8 +270,14 @@
                     let r = Math.floor(ry / cellHeight);
 
                     if (r >= 0 && r < 20 && c >= 0 && c < 20) {
+                        // Snap the floating element exactly to the grid cell
+                        floatEl.style.left = `${boardRect.left + c * cellWidth}px`;
+                        floatEl.style.top = `${boardRect.top + r * cellHeight}px`;
                         tryPlaceTentative(r, c);
                     }
+                } else {
+                    floatEl.style.left = `${clientX - 20}px`;
+                    floatEl.style.top = `${clientY - 40}px`;
                 }
             };
 
@@ -292,7 +293,7 @@
 
                 let clientX = e.clientX || (e.changedTouches ? e.changedTouches[0].clientX : 0);
                 let clientY = e.clientY || (e.changedTouches ? e.changedTouches[0].clientY : 0);
-                
+
                 const boardEl = document.getElementById('board');
                 const boardRect = boardEl.getBoundingClientRect();
 
@@ -399,15 +400,12 @@
                             coversCorner = true;
                         }
 
-                        // Neighbor evaluation
                         for (let er = 0; er < 20; er++) {
                             for (let ec = 0; ec < 20; ec++) {
                                 if (board[er][ec] === playerIndex) {
-                                    // Edge contact
                                     if (Math.abs(pr - er) + Math.abs(pc - ec) === 1) {
                                         edgeConflict = true;
                                     }
-                                    // Corner contact
                                     if (Math.abs(pr - er) === 1 && Math.abs(pc - ec) === 1) {
                                         cornerConditionMet = true;
                                     }
@@ -457,7 +455,6 @@
 
         function redoPlacement() {
             if (!tentativePlacement) return;
-            
             tentativePlacement = null;
             renderBoard();
             document.getElementById('confirm-btn').disabled = true;
