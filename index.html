@@ -169,4 +169,176 @@
         }
 
         function handleHover(e) {
-            if
+            if (!state.activePiece || !boardEl) return;
+            
+            const rect = boardEl.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const cellW = rect.width / 20;
+            const cellH = rect.height / 20;
+
+            const c = Math.floor(x / cellW - state.activePiece[0].length / 2);
+            const r = Math.floor(y / cellH) - state.activePiece.length - 1;
+
+            if (r >= -5 && r < 20 && c >= -5 && c < 20) {
+                state.cursorPos = { r, c };
+            } else {
+                state.cursorPos = null;
+            }
+            renderBoard();
+        }
+
+        function handleBoardTap() {
+            if (!state.activePiece || !state.cursorPos) return;
+
+            const { r, c } = state.cursorPos;
+            if (validate(state.activePiece, r, c, state.turn)) {
+                state.pendingMove = { 
+                    piece: JSON.parse(JSON.stringify(state.activePiece)), 
+                    r: r, 
+                    c: c 
+                };
+                
+                const okBtn = document.getElementById('ok-btn');
+                okBtn.disabled = false;
+                okBtn.style.opacity = "1";
+                renderBoard();
+            }
+        }
+
+        function drawGhost(piece, r, c, className) {
+            piece.forEach((row, i) => {
+                row.forEach((val, j) => {
+                    if (val) {
+                        const tr = r + i, tc = c + j;
+                        if (tr >= 0 && tr < 20 && tc >= 0 && tc < 20) {
+                            const target = document.getElementById(`c-${tr}-${tc}`);
+                            if (target) {
+                                target.style.backgroundColor = state.players[state.turn].color;
+                                target.classList.add(className);
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        function confirmTurn() {
+            if (!state.pendingMove) return;
+            const { piece, r, c } = state.pendingMove;
+            
+            piece.forEach((row, i) => {
+                row.forEach((val, j) => {
+                    if (val) state.board[r+i][c+j] = state.turn;
+                });
+            });
+
+            state.players[state.turn].pieces.splice(state.selectedIdx, 1);
+            state.pendingMove = null;
+            passTurn();
+        }
+
+        function validate(piece, r, c, pIdx) {
+            let hasCorner = false, hasEdge = false;
+            let isFirst = !state.board.some(row => row.includes(pIdx));
+            const starts = [[0,0], [0,19], [19,0], [19,19]];
+
+            for (let i = 0; i < piece.length; i++) {
+                for (let j = 0; j < piece[i].length; j++) {
+                    if (piece[i][j]) {
+                        let pr = r + i, pc = c + j;
+                        if (pr < 0 || pr >= 20 || pc < 0 || pc >= 20 || state.board[pr][pc] !== null) return false;
+                        if (isFirst && pr === starts[pIdx][0] && pc === starts[pIdx][1]) hasCorner = true;
+                        
+                        [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr, dc]) => {
+                            let nr = pr+dr, nc = pc+dc;
+                            if (nr >= 0 && nr < 20 && nc >= 0 && nc < 20 && state.board[nr][nc] === pIdx) hasEdge = true;
+                        });
+                        [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr, dc]) => {
+                            let nr = pr+dr, nc = pc+dc;
+                            if (nr >= 0 && nr < 20 && nc >= 0 && nc < 20 && state.board[nr][nc] === pIdx) hasCorner = true;
+                        });
+                    }
+                }
+            }
+            return isFirst ? hasCorner : (hasCorner && !hasEdge);
+        }
+
+        function rotatePiece() {
+            if (!state.activePiece) return;
+            state.activePiece = state.activePiece[0].map((_, i) => state.activePiece.map(row => row[i]).reverse());
+            state.players[state.turn].pieces[state.selectedIdx] = state.activePiece;
+            state.pendingMove = null;
+            document.getElementById('ok-btn').disabled = true;
+            document.getElementById('ok-btn').style.opacity = "0.5";
+            renderTray();
+            renderBoard();
+        }
+
+        function flipPiece() {
+            if (!state.activePiece) return;
+            state.activePiece = state.activePiece.map(row => [...row].reverse());
+            state.players[state.turn].pieces[state.selectedIdx] = state.activePiece;
+            state.pendingMove = null;
+            document.getElementById('ok-btn').disabled = true;
+            document.getElementById('ok-btn').style.opacity = "0.5";
+            renderTray();
+            renderBoard();
+        }
+
+        function passTurn() {
+            state.turn = (state.turn + 1) % state.numPlayers;
+            state.selectedIdx = null;
+            state.activePiece = null;
+            state.pendingMove = null;
+            state.cursorPos = null;
+            const okBtn = document.getElementById('ok-btn');
+            okBtn.disabled = true;
+            okBtn.style.opacity = "0.5";
+            updateUI();
+            renderTray();
+            renderBoard();
+        }
+
+        function renderTray() {
+            const container = document.getElementById('pieces-container');
+            container.innerHTML = '';
+            state.players[state.turn].pieces.forEach((matrix, i) => {
+                const btn = document.createElement('div');
+                btn.className = `piece-btn p-1 rounded cursor-pointer ${state.selectedIdx === i ? 'bg-indigo-900/50 ring-2 ring-indigo-400' : 'bg-gray-700 hover:bg-gray-600'}`;
+                btn.onclick = () => { 
+                    state.selectedIdx = i; 
+                    state.activePiece = matrix; 
+                    state.pendingMove = null;
+                    document.getElementById('ok-btn').disabled = true;
+                    document.getElementById('ok-btn').style.opacity = "0.5";
+                    renderTray(); 
+                    renderBoard();
+                };
+                btn.innerHTML = drawMatrix(matrix, state.players[state.turn].color, 9);
+                container.appendChild(btn);
+            });
+        }
+
+        function drawMatrix(matrix, color, size) {
+            const r = matrix.length, c = matrix[0].length;
+            let h = `<div style="display:grid; grid-template-columns:repeat(${c},${size}px); gap:1px">`;
+            for (let i = 0; i < r; i++) {
+                for (let j = 0; j < c; j++) {
+                    h += `<div style="width:${size}px; height:${size}px; background:${matrix[i][j]?color:'transparent'}"></div>`;
+                }
+            }
+            return h + `</div>`;
+        }
+
+        function updateUI() {
+            const p = state.players[state.turn];
+            const display = document.getElementById('player-display');
+            display.innerText = p.name;
+            display.style.color = p.color;
+            display.style.borderColor = p.color;
+        }
+    </script>
+</body>
+</html>
