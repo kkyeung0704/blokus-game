@@ -29,7 +29,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center p-4">
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center p-4 select-none">
 
     <header class="text-center mb-6">
         <h1 class="text-3xl font-bold text-indigo-400 mb-1">Blokus Mobile</h1>
@@ -45,11 +45,11 @@
         <div id="board" class="board-grid shadow-2xl"></div>
 
         <div class="flex gap-4 w-full justify-between">
+            <button id="confirm-btn" onclick="confirmPlacement()" class="w-1/2 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-50" disabled>
+                Confirm
+            </button>
             <button onclick="passTurn()" class="w-1/2 py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-md transition-all active:scale-95">
                 Pass Turn
-            </button>
-            <button onclick="resetGame()" class="w-1/2 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-md transition-all active:scale-95">
-                Restart Game
             </button>
         </div>
 
@@ -104,6 +104,7 @@
         let players = [];
         let selectedPiece = null;
         let selectedPieceIndex = null;
+        let tentativePlacement = null;
 
         function initGame() {
             board = Array(20).fill(null).map(() => Array(20).fill(null));
@@ -116,6 +117,7 @@
             ];
             selectedPiece = null;
             selectedPieceIndex = null;
+            tentativePlacement = null;
             renderBoard();
             renderTurn();
             renderPieces();
@@ -128,9 +130,10 @@
             for (let r = 0; r < 20; r++) {
                 for (let c = 0; c < 20; c++) {
                     const cell = document.createElement('div');
-                    cell.className = 'board-cell';
+                    cell.className = 'board-cell flex items-center justify-center';
                     cell.dataset.r = r;
                     cell.dataset.c = c;
+                    cell.style.border = 'none';
                     cell.onclick = () => handleCellClick(r, c);
 
                     if (board[r][c] !== null) {
@@ -141,6 +144,22 @@
                         else if (r === 0 && c === 19) cell.style.backgroundColor = 'rgba(234, 179, 8, 0.2)';
                         else if (r === 19 && c === 0) cell.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
                         else if (r === 19 && c === 19) cell.style.backgroundColor = 'rgba(34, 197, 94, 0.2)';
+                        else cell.style.backgroundColor = '';
+                    }
+
+                    // Tentative Placement Overlay
+                    if (tentativePlacement) {
+                        let tr = tentativePlacement.r;
+                        let tc = tentativePlacement.c;
+                        let matrix = tentativePlacement.pieceMatrix;
+                        if (r >= tr && r < tr + matrix.length && c >= tc && c < tc + matrix[0].length) {
+                            let dr = r - tr;
+                            let dc = c - tc;
+                            if (matrix[dr][dc] === 1) {
+                                cell.style.backgroundColor = players[currentPlayerIndex].color;
+                                cell.style.opacity = '0.6';
+                            }
+                        }
                     }
                     boardEl.appendChild(cell);
                 }
@@ -166,7 +185,10 @@
                     selectedPieceIndex === index ? 'border-indigo-400 bg-gray-700 shadow' : 'border-gray-600 bg-gray-800 hover:bg-gray-700'
                 }`;
                 btn.onclick = () => selectPiece(index);
-                
+                btn.onmousedown = (e) => startDrag(index, e);
+                btn.ontouchstart = (e) => startDrag(index, e);
+                btn.ondragstart = () => false;
+
                 const matrixHtml = renderMiniPiece(pieceMatrix, p.color);
                 btn.innerHTML = matrixHtml;
                 container.appendChild(btn);
@@ -207,6 +229,79 @@
             renderPreview();
         }
 
+        function startDrag(index, event) {
+            event.preventDefault();
+            selectPiece(index);
+
+            let floatEl = document.createElement('div');
+            floatEl.id = 'floating-piece';
+            floatEl.style.position = 'fixed';
+            floatEl.style.pointerEvents = 'none';
+            floatEl.style.zIndex = '9999';
+            floatEl.style.opacity = '0.8';
+            floatEl.innerHTML = renderMiniPiece(selectedPiece, players[currentPlayerIndex].color);
+            document.body.appendChild(floatEl);
+
+            let x = event.clientX || (event.touches ? event.touches[0].clientX : 0);
+            let y = event.clientY || (event.touches ? event.touches[0].clientY : 0);
+            floatEl.style.left = `${x - 20}px`;
+            floatEl.style.top = `${y - 20}px`;
+
+            const moveHandler = (e) => {
+                let clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+                let clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+                floatEl.style.left = `${clientX - 20}px`;
+                floatEl.style.top = `${clientY - 20}px`;
+            };
+
+            const upHandler = (e) => {
+                document.removeEventListener('mousemove', moveHandler);
+                document.removeEventListener('mouseup', upHandler);
+                document.removeEventListener('touchmove', moveHandler);
+                document.removeEventListener('touchend', upHandler);
+
+                if (document.body.contains(floatEl)) {
+                    document.body.removeChild(floatEl);
+                }
+
+                let clientX = e.clientX || (e.changedTouches ? e.changedTouches[0].clientX : 0);
+                let clientY = e.clientY || (e.changedTouches ? e.changedTouches[0].clientY : 0);
+                let element = document.elementFromPoint(clientX, clientY);
+
+                if (element && element.classList.contains('board-cell')) {
+                    let r = parseInt(element.dataset.r);
+                    let c = parseInt(element.dataset.c);
+                    tryPlaceTentative(r, c);
+                }
+            };
+
+            document.addEventListener('mousemove', moveHandler);
+            document.addEventListener('mouseup', upHandler);
+            document.addEventListener('touchmove', moveHandler);
+            document.addEventListener('touchend', upHandler);
+        }
+
+        function tryPlaceTentative(r, c) {
+            if (!selectedPiece) return;
+
+            if (validatePlacement(selectedPiece, r, c, currentPlayerIndex)) {
+                tentativePlacement = {
+                    r: r,
+                    c: c,
+                    pieceMatrix: JSON.parse(JSON.stringify(selectedPiece)),
+                    playerIndex: currentPlayerIndex,
+                    originalIndex: selectedPieceIndex
+                };
+                renderBoard();
+                document.getElementById('confirm-btn').disabled = false;
+            } else {
+                alert("Invalid placement! Please make sure the piece is connected at the corners, does not touch your own edges, and does not overlap.");
+                tentativePlacement = null;
+                renderBoard();
+                document.getElementById('confirm-btn').disabled = true;
+            }
+        }
+
         function rotatePiece() {
             if (!selectedPiece) return;
             const rows = selectedPiece.length;
@@ -217,14 +312,39 @@
                     result[c][rows - 1 - r] = selectedPiece[r][c];
                 }
             }
-            selectedPiece = result;
-            renderPreview();
+            
+            if (tentativePlacement) {
+                if (validatePlacement(result, tentativePlacement.r, tentativePlacement.c, currentPlayerIndex)) {
+                    selectedPiece = result;
+                    tentativePlacement.pieceMatrix = JSON.parse(JSON.stringify(selectedPiece));
+                    renderBoard();
+                    renderPreview();
+                } else {
+                    alert("Rotation invalid at current location.");
+                }
+            } else {
+                selectedPiece = result;
+                renderPreview();
+            }
         }
 
         function flipPiece() {
             if (!selectedPiece) return;
-            selectedPiece = selectedPiece.map(row => row.slice().reverse());
-            renderPreview();
+            const result = selectedPiece.map(row => row.slice().reverse());
+
+            if (tentativePlacement) {
+                if (validatePlacement(result, tentativePlacement.r, tentativePlacement.c, currentPlayerIndex)) {
+                    selectedPiece = result;
+                    tentativePlacement.pieceMatrix = JSON.parse(JSON.stringify(selectedPiece));
+                    renderBoard();
+                    renderPreview();
+                } else {
+                    alert("Flip invalid at current location.");
+                }
+            } else {
+                selectedPiece = result;
+                renderPreview();
+            }
         }
 
         function validatePlacement(piece, r, c, playerIndex) {
@@ -294,32 +414,28 @@
 
         function handleCellClick(r, c) {
             if (!selectedPiece) {
-                alert("Please select a piece from your tray first.");
                 return;
             }
+            tryPlaceTentative(r, c);
+        }
 
-            if (validatePlacement(selectedPiece, r, c, currentPlayerIndex)) {
-                let size = 0;
-                for (let dr = 0; dr < selectedPiece.length; dr++) {
-                    for (let dc = 0; dc < selectedPiece[dr].length; dc++) {
-                        if (selectedPiece[dr][dc] === 1) {
-                            board[r + dr][c + dc] = currentPlayerIndex;
-                            size++;
-                        }
+        function confirmPlacement() {
+            if (!tentativePlacement) return;
+
+            let size = 0;
+            for (let dr = 0; dr < tentativePlacement.pieceMatrix.length; dr++) {
+                for (let dc = 0; dc < tentativePlacement.pieceMatrix[dr].length; dc++) {
+                    if (tentativePlacement.pieceMatrix[dr][dc] === 1) {
+                        board[tentativePlacement.r + dr][tentativePlacement.c + dc] = currentPlayerIndex;
+                        size++;
                     }
                 }
-
-                players[currentPlayerIndex].score += size;
-                players[currentPlayerIndex].pieces.splice(selectedPieceIndex, 1);
-
-                selectedPiece = null;
-                selectedPieceIndex = null;
-
-                renderBoard();
-                nextTurn();
-            } else {
-                alert("Invalid placement! Please make sure the piece is connected at the corners, does not touch your own edges, and does not overlap.");
             }
+
+            players[currentPlayerIndex].score += size;
+            players[currentPlayerIndex].pieces.splice(tentativePlacement.originalIndex, 1);
+
+            nextTurn();
         }
 
         function passTurn() {
@@ -330,14 +446,12 @@
             currentPlayerIndex = (currentPlayerIndex + 1) % 4;
             selectedPiece = null;
             selectedPieceIndex = null;
+            tentativePlacement = null;
+            document.getElementById('confirm-btn').disabled = true;
             renderBoard();
             renderTurn();
             renderPieces();
             renderPreview();
-        }
-
-        function resetGame() {
-            initGame();
         }
 
         // Initialize game on load
