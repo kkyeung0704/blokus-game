@@ -26,7 +26,7 @@
         }
         .ghost-valid { filter: brightness(1.4) saturate(1.2); outline: 2px solid white; z-index: 10; }
         .ghost-invalid { background-color: #991b1b !important; opacity: 0.6; }
-        .pending-move { filter: brightness(1.2); outline: 2px dashed rgba(255,255,255,0.5); }
+        .pending-move { filter: brightness(1.2); outline: 2px dashed rgba(255,255,255,0.6); }
         
         .piece-btn { transition: transform 0.1s; touch-action: manipulation; }
         .piece-btn:active { transform: scale(0.9); }
@@ -39,11 +39,11 @@
     <div id="setup-screen" class="w-full max-w-md flex flex-col items-center justify-center space-y-8 mt-20">
         <h1 class="text-6xl font-black text-indigo-500 tracking-tighter">BLOKUS</h1>
         <div class="w-full bg-gray-800 p-6 rounded-3xl border border-gray-700 shadow-2xl">
-            <h2 class="text-xl font-bold mb-6 text-center text-gray-300">Select Players</h2>
+            <h2 class="text-xl font-bold mb-6 text-center text-gray-400 uppercase tracking-widest">Select Players</h2>
             <div class="grid gap-4">
-                <button onclick="initGame(2)" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold text-lg active:scale-95">2 Players</button>
-                <button onclick="initGame(3)" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold text-lg active:scale-95">3 Players</button>
-                <button onclick="initGame(4)" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold text-lg active:scale-95">4 Players</button>
+                <button onclick="initGame(2)" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-black text-xl transition-all active:scale-95">2 Players</button>
+                <button onclick="initGame(3)" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-black text-xl transition-all active:scale-95">3 Players</button>
+                <button onclick="initGame(4)" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-black text-xl transition-all active:scale-95">4 Players</button>
             </div>
         </div>
     </div>
@@ -54,7 +54,7 @@
                 <h1 class="text-xl font-bold text-indigo-400 inline">Blokus</h1>
                 <span id="player-display" class="font-black uppercase ml-3 px-3 py-1 rounded bg-gray-800 border-b-2">BLUE</span>
             </div>
-            <button onclick="location.reload()" class="text-[10px] text-gray-500 border border-gray-700 px-2 py-1 rounded uppercase">Reset</button>
+            <button onclick="location.reload()" class="text-[10px] text-gray-500 border border-gray-700 px-2 py-1 rounded uppercase font-bold">Quit</button>
         </header>
 
         <div class="relative mb-4 flex justify-center pb-4">
@@ -63,4 +63,283 @@
 
         <div class="flex items-center justify-between gap-3 mb-4 px-1">
             <div class="flex gap-2">
-                <button id="rot-btn" onclick="rotatePiece()" class="w-12 h-12 bg-gray-800 hover:bg-gray
+                <button onclick="rotatePiece()" class="w-12 h-12 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center justify-center border border-gray-700 text-2xl">↻</button>
+                <button onclick="flipPiece()" class="w-12 h-12 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center justify-center border border-gray-700 text-2xl">↔</button>
+            </div>
+            
+            <button id="ok-btn" onclick="confirmTurn()" disabled class="flex-1 h-12 bg-green-600 disabled:bg-gray-800 disabled:text-gray-600 disabled:border-gray-700 rounded-xl font-black text-lg border border-green-400 transition-all opacity-50">
+                OK
+            </button>
+
+            <button onclick="passTurn()" class="px-4 h-12 bg-amber-900/30 rounded-xl font-bold border border-amber-800/40 text-[10px] uppercase">Skip</button>
+        </div>
+
+        <div class="bg-gray-800 p-3 rounded-2xl border border-gray-700">
+            <div id="pieces-container" class="flex flex-wrap gap-2 justify-center max-h-52 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        const PIECES = [[[1]],[[1,1]],[[1,1,1]],[[1,1],[1,0]],[[1,1,1,1]],[[1,1],[1,1]],[[1,1,1],[1,0,0]],[[1,1,1],[0,1,0]],[[1,1,0],[0,1,1]],[[1,1,1,1,1]],[[1,1,1,1],[1,0,0,0]],[[1,1,1,1],[0,1,0,0]],[[1,1,1],[1,0,0],[1,0,0]],[[1,1,1],[0,1,0],[0,1,0]],[[1,1],[1,1],[1,0]],[[1,0,0],[1,1,1],[0,0,1]],[[0,1,0],[1,1,1],[0,1,0]],[[1,0,0],[1,0,0],[1,1,1]],[[1,0,0],[1,1,0],[0,1,1]],[[1,1],[1,0],[1,1]],[[0,1,1],[1,1,0],[0,1,0]]];
+
+        let state = {
+            board: Array(20).fill(null).map(() => Array(20).fill(null)),
+            players: [
+                { name: "BLUE", color: "#3b82f6", pieces: [] },
+                { name: "YELLOW", color: "#eab308", pieces: [] },
+                { name: "RED", color: "#ef4444", pieces: [] },
+                { name: "GREEN", color: "#22c55e", pieces: [] }
+            ],
+            turn: 0,
+            numPlayers: 4,
+            selectedIdx: null,
+            activePiece: null,
+            isDragging: false,
+            pendingMove: null,
+            lastPos: null
+        };
+
+        let boardEl; // Defined when game starts
+
+        function initGame(count) {
+            state.numPlayers = count;
+            boardEl = document.getElementById('board');
+            
+            // Safety Check
+            if (!boardEl) {
+                console.error("Board element not found!");
+                return;
+            }
+
+            // Populate pieces for active players
+            for(let i=0; i<4; i++) {
+                state.players[i].pieces = JSON.parse(JSON.stringify(PIECES));
+            }
+
+            // UI Switch
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            
+            createBoard();
+            renderTray();
+            updateUI();
+            
+            // Listeners
+            boardEl.addEventListener('pointerdown', startDrag);
+            window.addEventListener('pointermove', doDrag);
+            window.addEventListener('pointerup', endDrag);
+        }
+
+        function createBoard() {
+            boardEl.innerHTML = '';
+            for(let r=0; r<20; r++) {
+                for(let c=0; c<20; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.id = `c-${r}-${c}`;
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function renderBoard() {
+            for(let r=0; r<20; r++) {
+                for(let c=0; c<20; c++) {
+                    const cell = document.getElementById(`c-${r}-${c}`);
+                    cell.className = 'cell';
+                    const owner = state.board[r][c];
+                    cell.style.backgroundColor = owner !== null ? state.players[owner].color : '';
+                }
+            }
+
+            if (state.pendingMove) {
+                const { piece, r, c } = state.pendingMove;
+                piece.forEach((row, i) => {
+                    row.forEach((val, j) => {
+                        if (val) {
+                            const tr = r + i, tc = c + j;
+                            if (tr >= 0 && tr < 20 && tc >= 0 && tc < 20) {
+                                const target = document.getElementById(`c-${tr}-${tc}`);
+                                target.style.backgroundColor = state.players[state.turn].color;
+                                target.classList.add('pending-move');
+                            }
+                        }
+                    });
+                });
+            }
+        }
+
+        function startDrag(e) {
+            if (state.selectedIdx === null) return;
+            state.isDragging = true;
+            state.pendingMove = null; 
+            const okBtn = document.getElementById('ok-btn');
+            okBtn.disabled = true;
+            okBtn.style.opacity = "0.5";
+            doDrag(e);
+        }
+
+        function doDrag(e) {
+            if (!state.isDragging || !state.activePiece) return;
+            const rect = boardEl.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const cellW = rect.width / 20;
+            const cellH = rect.height / 20;
+
+            const c = Math.floor(x / cellW - state.activePiece[0].length / 2);
+            const r = Math.floor(y / cellH) - state.activePiece.length - 1;
+
+            renderBoard(); 
+            if (r >= -10 && r < 20 && c >= -10 && c < 20) {
+                const isValid = validate(state.activePiece, r, c, state.turn);
+                showGhost(state.activePiece, r, c, isValid);
+                state.lastPos = { r, c };
+            } else {
+                state.lastPos = null;
+            }
+        }
+
+        function endDrag() {
+            if (!state.isDragging) return;
+            state.isDragging = false;
+            
+            if (state.lastPos && validate(state.activePiece, state.lastPos.r, state.lastPos.c, state.turn)) {
+                state.pendingMove = { 
+                    piece: JSON.parse(JSON.stringify(state.activePiece)), 
+                    r: state.lastPos.r, 
+                    c: state.lastPos.c 
+                };
+                const btn = document.getElementById('ok-btn');
+                btn.disabled = false;
+                btn.style.opacity = "1";
+            }
+            renderBoard();
+        }
+
+        function confirmTurn() {
+            if (!state.pendingMove) return;
+            const { piece, r, c } = state.pendingMove;
+            
+            piece.forEach((row, i) => {
+                row.forEach((val, j) => {
+                    if (val) state.board[r+i][c+j] = state.turn;
+                });
+            });
+
+            state.players[state.turn].pieces.splice(state.selectedIdx, 1);
+            state.pendingMove = null;
+            passTurn();
+        }
+
+        function showGhost(piece, r, c, isValid) {
+            piece.forEach((row, i) => {
+                row.forEach((val, j) => {
+                    if (val) {
+                        const tr = r + i, tc = c + j;
+                        if (tr >= 0 && tr < 20 && tc >= 0 && tc < 20) {
+                            const target = document.getElementById(`c-${tr}-${tc}`);
+                            target.style.backgroundColor = state.players[state.turn].color;
+                            target.classList.add(isValid ? 'ghost-valid' : 'ghost-invalid');
+                        }
+                    }
+                });
+            });
+        }
+
+        function validate(piece, r, c, pIdx) {
+            let hasCorner = false, hasEdge = false;
+            let isFirst = !state.board.some(row => row.includes(pIdx));
+            const starts = [[0,0], [0,19], [19,0], [19,19]];
+
+            for (let i = 0; i < piece.length; i++) {
+                for (let j = 0; j < piece[i].length; j++) {
+                    if (piece[i][j]) {
+                        let pr = r + i, pc = c + j;
+                        if (pr < 0 || pr >= 20 || pc < 0 || pc >= 20 || state.board[pr][pc] !== null) return false;
+                        if (isFirst && pr === starts[pIdx][0] && pc === starts[pIdx][1]) hasCorner = true;
+                        
+                        [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr, dc]) => {
+                            let nr = pr+dr, nc = pc+dc;
+                            if (nr>=0 && nr<20 && nc>=0 && nc<20 && state.board[nr][nc] === pIdx) hasEdge = true;
+                        });
+                        [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dr, dc]) => {
+                            let nr = pr+dr, nc = pc+dc;
+                            if (nr>=0 && nr<20 && nc>=0 && nc<20 && state.board[nr][nc] === pIdx) hasCorner = true;
+                        });
+                    }
+                }
+            }
+            return isFirst ? hasCorner : (hasCorner && !hasEdge);
+        }
+
+        function rotatePiece() {
+            if (!state.activePiece) return;
+            state.activePiece = state.activePiece[0].map((_, i) => state.activePiece.map(row => row[i]).reverse());
+            state.pendingMove = null;
+            document.getElementById('ok-btn').disabled = true;
+            renderTray();
+            renderBoard();
+        }
+
+        function flipPiece() {
+            if (!state.activePiece) return;
+            state.activePiece = state.activePiece.map(row => [...row].reverse());
+            state.pendingMove = null;
+            document.getElementById('ok-btn').disabled = true;
+            renderTray();
+            renderBoard();
+        }
+
+        function passTurn() {
+            state.turn = (state.turn + 1) % state.numPlayers;
+            state.selectedIdx = null;
+            state.activePiece = null;
+            state.pendingMove = null;
+            const okBtn = document.getElementById('ok-btn');
+            okBtn.disabled = true;
+            okBtn.style.opacity = "0.5";
+            updateUI();
+            renderTray();
+            renderBoard();
+        }
+
+        function renderTray() {
+            const container = document.getElementById('pieces-container');
+            container.innerHTML = '';
+            state.players[state.turn].pieces.forEach((matrix, i) => {
+                const btn = document.createElement('div');
+                btn.className = `piece-btn p-1 rounded cursor-pointer ${state.selectedIdx === i ? 'bg-indigo-900/50 ring-2 ring-indigo-400' : 'bg-gray-700 hover:bg-gray-600'}`;
+                btn.onclick = () => { 
+                    state.selectedIdx = i; 
+                    state.activePiece = matrix; 
+                    state.pendingMove = null;
+                    document.getElementById('ok-btn').disabled = true;
+                    renderTray(); 
+                    renderBoard();
+                };
+                btn.innerHTML = drawMatrix(matrix, state.players[state.turn].color, 9);
+                container.appendChild(btn);
+            });
+        }
+
+        function drawMatrix(matrix, color, size) {
+            const r = matrix.length, c = matrix[0].length;
+            let h = `<div style="display:grid; grid-template-columns:repeat(${c},${size}px); gap:1px">`;
+            for(let i=0; i<r; i++) 
+                for(let j=0; j<c; j++) 
+                    h += `<div style="width:${size}px; height:${size}px; background:${matrix[i][j]?color:'transparent'}"></div>`;
+            return h + `</div>`;
+        }
+
+        function updateUI() {
+            const p = state.players[state.turn];
+            const display = document.getElementById('player-display');
+            display.innerText = p.name;
+            display.style.color = p.color;
+            display.style.borderColor = p.color;
+        }
+    </script>
+</body>
+</html>
