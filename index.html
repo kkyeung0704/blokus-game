@@ -8,13 +8,15 @@
     <style>
         .board-grid {
             display: grid;
-            grid-template-columns: repeat(20, minmax(16px, 24px));
-            grid-template-rows: repeat(20, minmax(16px, 24px));
+            grid-template-columns: repeat(20, minmax(0, 1fr));
+            grid-template-rows: repeat(20, minmax(0, 1fr));
             gap: 1px;
             background-color: #1f2937;
             padding: 2px;
             border-radius: 6px;
-            max-width: 100%;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1 / 1;
             margin: 0 auto;
         }
         .board-cell {
@@ -185,7 +187,6 @@
                 btn.className = `p-2 rounded border transition-all ${
                     selectedPieceIndex === index ? 'border-indigo-400 bg-gray-700 shadow' : 'border-gray-600 bg-gray-800 hover:bg-gray-700'
                 }`;
-                // Select only (no direct dragging from the list)
                 btn.onclick = () => selectPiece(index);
 
                 const matrixHtml = renderMiniPiece(pieceMatrix, p.color);
@@ -240,20 +241,40 @@
             floatEl.style.position = 'fixed';
             floatEl.style.pointerEvents = 'none';
             floatEl.style.zIndex = '9999';
-            floatEl.style.opacity = '0.8';
+            floatEl.style.opacity = '0.7';
             floatEl.innerHTML = renderMiniPiece(selectedPiece, players[currentPlayerIndex].color);
             document.body.appendChild(floatEl);
 
             let x = event.clientX || (event.touches ? event.touches[0].clientX : 0);
             let y = event.clientY || (event.touches ? event.touches[0].clientY : 0);
             floatEl.style.left = `${x - 20}px`;
-            floatEl.style.top = `${y - 20}px`;
+            floatEl.style.top = `${y - 40}px`;
 
             const moveHandler = (e) => {
                 let clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
                 let clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+                
                 floatEl.style.left = `${clientX - 20}px`;
-                floatEl.style.top = `${clientY - 20}px`;
+                floatEl.style.top = `${clientY - 40}px`;
+
+                // Update tentative placement as shadow is dragged over the board
+                const boardEl = document.getElementById('board');
+                const boardRect = boardEl.getBoundingClientRect();
+                
+                if (clientX >= boardRect.left && clientX <= boardRect.right &&
+                    clientY >= boardRect.top && clientY <= boardRect.bottom) {
+                    
+                    let rx = clientX - boardRect.left;
+                    let ry = clientY - boardRect.top;
+                    let cellWidth = boardRect.width / 20;
+                    let cellHeight = boardRect.height / 20;
+                    let c = Math.floor(rx / cellWidth);
+                    let r = Math.floor(ry / cellHeight);
+
+                    if (r >= 0 && r < 20 && c >= 0 && c < 20) {
+                        tryPlaceTentative(r, c);
+                    }
+                }
             };
 
             const upHandler = (e) => {
@@ -268,12 +289,23 @@
 
                 let clientX = e.clientX || (e.changedTouches ? e.changedTouches[0].clientX : 0);
                 let clientY = e.clientY || (e.changedTouches ? e.changedTouches[0].clientY : 0);
-                let element = document.elementFromPoint(clientX, clientY);
+                
+                const boardEl = document.getElementById('board');
+                const boardRect = boardEl.getBoundingClientRect();
 
-                if (element && element.classList.contains('board-cell')) {
-                    let r = parseInt(element.dataset.r);
-                    let c = parseInt(element.dataset.c);
-                    tryPlaceTentative(r, c);
+                if (clientX >= boardRect.left && clientX <= boardRect.right &&
+                    clientY >= boardRect.top && clientY <= boardRect.bottom) {
+
+                    let rx = clientX - boardRect.left;
+                    let ry = clientY - boardRect.top;
+                    let cellWidth = boardRect.width / 20;
+                    let cellHeight = boardRect.height / 20;
+                    let c = Math.floor(rx / cellWidth);
+                    let r = Math.floor(ry / cellHeight);
+
+                    if (r >= 0 && r < 20 && c >= 0 && c < 20) {
+                        tryPlaceTentative(r, c);
+                    }
                 }
             };
 
@@ -412,7 +444,6 @@
                 renderBoard();
                 document.getElementById('confirm-btn').disabled = false;
             } else {
-                alert("Invalid placement! Please make sure the piece is connected at the corners, does not touch your own edges, and does not overlap.");
                 tentativePlacement = null;
                 renderBoard();
                 document.getElementById('confirm-btn').disabled = true;
