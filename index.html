@@ -238,20 +238,7 @@
             if (!selectedPiece) return;
             event.preventDefault();
 
-            let floatEl = document.createElement('div');
-            floatEl.id = 'floating-piece';
-            floatEl.style.position = 'fixed';
-            floatEl.style.pointerEvents = 'none';
-            floatEl.style.zIndex = '9999';
-            floatEl.style.opacity = '0.7';
-            floatEl.innerHTML = renderMiniPiece(selectedPiece, players[currentPlayerIndex].color);
-            document.body.appendChild(floatEl);
-
-            let x = event.clientX || (event.touches ? event.touches[0].clientX : 0);
-            let y = event.clientY || (event.touches ? event.touches[0].clientY : 0);
-            floatEl.style.left = `${x - 20}px`;
-            floatEl.style.top = `${y - 40}px`;
-
+            // When dragging, interact directly with the board
             const moveHandler = (e) => {
                 let clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
                 let clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
@@ -270,14 +257,8 @@
                     let r = Math.floor(ry / cellHeight);
 
                     if (r >= 0 && r < 20 && c >= 0 && c < 20) {
-                        // Snap the floating element exactly to the grid cell
-                        floatEl.style.left = `${boardRect.left + c * cellWidth}px`;
-                        floatEl.style.top = `${boardRect.top + r * cellHeight}px`;
                         tryPlaceTentative(r, c);
                     }
-                } else {
-                    floatEl.style.left = `${clientX - 20}px`;
-                    floatEl.style.top = `${clientY - 40}px`;
                 }
             };
 
@@ -286,31 +267,6 @@
                 document.removeEventListener('mouseup', upHandler);
                 document.removeEventListener('touchmove', moveHandler);
                 document.removeEventListener('touchend', upHandler);
-
-                if (document.body.contains(floatEl)) {
-                    document.body.removeChild(floatEl);
-                }
-
-                let clientX = e.clientX || (e.changedTouches ? e.changedTouches[0].clientX : 0);
-                let clientY = e.clientY || (e.changedTouches ? e.changedTouches[0].clientY : 0);
-
-                const boardEl = document.getElementById('board');
-                const boardRect = boardEl.getBoundingClientRect();
-
-                if (clientX >= boardRect.left && clientX <= boardRect.right &&
-                    clientY >= boardRect.top && clientY <= boardRect.bottom) {
-
-                    let rx = clientX - boardRect.left;
-                    let ry = clientY - boardRect.top;
-                    let cellWidth = boardRect.width / 20;
-                    let cellHeight = boardRect.height / 20;
-                    let c = Math.floor(rx / cellWidth);
-                    let r = Math.floor(ry / cellHeight);
-
-                    if (r >= 0 && r < 20 && c >= 0 && c < 20) {
-                        tryPlaceTentative(r, c);
-                    }
-                }
             };
 
             document.addEventListener('mousemove', moveHandler);
