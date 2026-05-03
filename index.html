@@ -24,9 +24,12 @@
             background-color: #374151;
             border-radius: 1px;
         }
-        .ghost-valid { filter: brightness(1.4) saturate(1.2); outline: 2px solid white; z-index: 10; }
-        .ghost-invalid { background-color: #991b1b !important; opacity: 0.6; }
-        .pending-move { filter: brightness(1.2); outline: 2px dashed rgba(255,255,255,0.6); }
+        /* The shape following the cursor */
+        .ghost-valid { filter: brightness(1.4) saturate(1.2); outline: 2px solid white; z-index: 10; opacity: 0.8; }
+        .ghost-invalid { background-color: #991b1b !important; opacity: 0.4; }
+        
+        /* The shape "locked" after a tap */
+        .pending-move { filter: brightness(1.2); outline: 2px dashed rgba(255,255,255,0.7); opacity: 1; }
         
         .piece-btn { transition: transform 0.1s; touch-action: manipulation; }
         .piece-btn:active { transform: scale(0.9); }
@@ -94,29 +97,18 @@
             numPlayers: 4,
             selectedIdx: null,
             activePiece: null,
-            isDragging: false,
             pendingMove: null,
-            lastPos: null
+            cursorPos: null // Current hover position {r, c}
         };
 
-        let boardEl; // Defined when game starts
+        let boardEl;
 
         function initGame(count) {
             state.numPlayers = count;
             boardEl = document.getElementById('board');
             
-            // Safety Check
-            if (!boardEl) {
-                console.error("Board element not found!");
-                return;
-            }
+            for(let i=0; i<4; i++) state.players[i].pieces = JSON.parse(JSON.stringify(PIECES));
 
-            // Populate pieces for active players
-            for(let i=0; i<4; i++) {
-                state.players[i].pieces = JSON.parse(JSON.stringify(PIECES));
-            }
-
-            // UI Switch
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
             
@@ -124,10 +116,9 @@
             renderTray();
             updateUI();
             
-            // Listeners
-            boardEl.addEventListener('pointerdown', startDrag);
-            window.addEventListener('pointermove', doDrag);
-            window.addEventListener('pointerup', endDrag);
+            // Interaction logic: Hover everywhere, but track the board rect
+            window.addEventListener('pointermove', handleHover);
+            boardEl.addEventListener('pointerdown', handleBoardTap);
         }
 
         function createBoard() {
@@ -143,6 +134,7 @@
         }
 
         function renderBoard() {
+            // Reset cells
             for(let r=0; r<20; r++) {
                 for(let c=0; c<20; c++) {
                     const cell = document.getElementById(`c-${r}-${c}`);
@@ -152,35 +144,21 @@
                 }
             }
 
+            // 1. Draw "Locked" Pending Move (if exists)
             if (state.pendingMove) {
-                const { piece, r, c } = state.pendingMove;
-                piece.forEach((row, i) => {
-                    row.forEach((val, j) => {
-                        if (val) {
-                            const tr = r + i, tc = c + j;
-                            if (tr >= 0 && tr < 20 && tc >= 0 && tc < 20) {
-                                const target = document.getElementById(`c-${tr}-${tc}`);
-                                target.style.backgroundColor = state.players[state.turn].color;
-                                target.classList.add('pending-move');
-                            }
-                        }
-                    });
-                });
+                drawGhost(state.pendingMove.piece, state.pendingMove.r, state.pendingMove.c, 'pending-move');
+            }
+
+            // 2. Draw "Following" Ghost (if piece selected and mouse over board)
+            if (state.activePiece && state.cursorPos) {
+                const isValid = validate(state.activePiece, state.cursorPos.r, state.cursorPos.c, state.turn);
+                drawGhost(state.activePiece, state.cursorPos.r, state.cursorPos.c, isValid ? 'ghost-valid' : 'ghost-invalid');
             }
         }
 
-        function startDrag(e) {
-            if (state.selectedIdx === null) return;
-            state.isDragging = true;
-            state.pendingMove = null; 
-            const okBtn = document.getElementById('ok-btn');
-            okBtn.disabled = true;
-            okBtn.style.opacity = "0.5";
-            doDrag(e);
-        }
-
-        function doDrag(e) {
-            if (!state.isDragging || !state.activePiece) return;
+        function handleHover(e) {
+            if (!state.activePiece) return;
+            
             const rect = boardEl.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
@@ -188,34 +166,51 @@
             const cellW = rect.width / 20;
             const cellH = rect.height / 20;
 
+            // Use the offset logic to keep it above the finger/cursor
             const c = Math.floor(x / cellW - state.activePiece[0].length / 2);
             const r = Math.floor(y / cellH) - state.activePiece.length - 1;
 
-            renderBoard(); 
-            if (r >= -10 && r < 20 && c >= -10 && c < 20) {
-                const isValid = validate(state.activePiece, r, c, state.turn);
-                showGhost(state.activePiece, r, c, isValid);
-                state.lastPos = { r, c };
+            // Check if cursor is near/on board area
+            if (r >= -5 && r < 20 && c >= -5 && c < 20) {
+                state.cursorPos = { r, c };
             } else {
-                state.lastPos = null;
+                state.cursorPos = null;
+            }
+            renderBoard();
+        }
+
+        function handleBoardTap() {
+            if (!state.activePiece || !state.cursorPos) return;
+
+            const { r, c } = state.cursorPos;
+            if (validate(state.activePiece, r, c, state.turn)) {
+                // "Lock" the piece into a pending state
+                state.pendingMove = { 
+                    piece: JSON.parse(JSON.stringify(state.activePiece)), 
+                    r: r, 
+                    c: c 
+                };
+                
+                const okBtn = document.getElementById('ok-btn');
+                okBtn.disabled = false;
+                okBtn.style.opacity = "1";
+                renderBoard();
             }
         }
 
-        function endDrag() {
-            if (!state.isDragging) return;
-            state.isDragging = false;
-            
-            if (state.lastPos && validate(state.activePiece, state.lastPos.r, state.lastPos.c, state.turn)) {
-                state.pendingMove = { 
-                    piece: JSON.parse(JSON.stringify(state.activePiece)), 
-                    r: state.lastPos.r, 
-                    c: state.lastPos.c 
-                };
-                const btn = document.getElementById('ok-btn');
-                btn.disabled = false;
-                btn.style.opacity = "1";
-            }
-            renderBoard();
+        function drawGhost(piece, r, c, className) {
+            piece.forEach((row, i) => {
+                row.forEach((val, j) => {
+                    if (val) {
+                        const tr = r + i, tc = c + j;
+                        if (tr >= 0 && tr < 20 && tc >= 0 && tc < 20) {
+                            const target = document.getElementById(`c-${tr}-${tc}`);
+                            target.style.backgroundColor = state.players[state.turn].color;
+                            target.classList.add(className);
+                        }
+                    }
+                });
+            });
         }
 
         function confirmTurn() {
@@ -231,21 +226,6 @@
             state.players[state.turn].pieces.splice(state.selectedIdx, 1);
             state.pendingMove = null;
             passTurn();
-        }
-
-        function showGhost(piece, r, c, isValid) {
-            piece.forEach((row, i) => {
-                row.forEach((val, j) => {
-                    if (val) {
-                        const tr = r + i, tc = c + j;
-                        if (tr >= 0 && tr < 20 && tc >= 0 && tc < 20) {
-                            const target = document.getElementById(`c-${tr}-${tc}`);
-                            target.style.backgroundColor = state.players[state.turn].color;
-                            target.classList.add(isValid ? 'ghost-valid' : 'ghost-invalid');
-                        }
-                    }
-                });
-            });
         }
 
         function validate(piece, r, c, pIdx) {
@@ -277,8 +257,9 @@
         function rotatePiece() {
             if (!state.activePiece) return;
             state.activePiece = state.activePiece[0].map((_, i) => state.activePiece.map(row => row[i]).reverse());
-            state.pendingMove = null;
+            state.pendingMove = null; // Reset staged move on transformation
             document.getElementById('ok-btn').disabled = true;
+            document.getElementById('ok-btn').style.opacity = "0.5";
             renderTray();
             renderBoard();
         }
@@ -288,6 +269,7 @@
             state.activePiece = state.activePiece.map(row => [...row].reverse());
             state.pendingMove = null;
             document.getElementById('ok-btn').disabled = true;
+            document.getElementById('ok-btn').style.opacity = "0.5";
             renderTray();
             renderBoard();
         }
@@ -297,6 +279,7 @@
             state.selectedIdx = null;
             state.activePiece = null;
             state.pendingMove = null;
+            state.cursorPos = null;
             const okBtn = document.getElementById('ok-btn');
             okBtn.disabled = true;
             okBtn.style.opacity = "0.5";
@@ -316,6 +299,7 @@
                     state.activePiece = matrix; 
                     state.pendingMove = null;
                     document.getElementById('ok-btn').disabled = true;
+                    document.getElementById('ok-btn').style.opacity = "0.5";
                     renderTray(); 
                     renderBoard();
                 };
